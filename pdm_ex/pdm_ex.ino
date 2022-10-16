@@ -123,11 +123,12 @@ void process_samples() {
 bool listening = false;
 int num_samples = 0;
 int num_waiting = 0;
-int threshold = 20;
+int threshold = 16;
+int counter = 0;
 
 void loop() {
     listening = num_samples < threshold;
-    if (listening) {
+    if (listening && counter < 25) {
       ledcWrite(LEDC_CHANNEL_0, 255);
       delay(READ_DELAY); 
       // Read multiple samples at once and calculate the sound pressure
@@ -137,10 +138,11 @@ void loop() {
       ledcWrite(LEDC_CHANNEL_0, 0);
       delay(READ_DELAY);
       num_waiting++;
-      if (num_waiting > threshold) {
+      if (num_waiting > threshold && counter < 25) {
         Serial.println("");
         num_waiting = 0;
         num_samples = 0;
+        counter++;
       }
     }
 }
