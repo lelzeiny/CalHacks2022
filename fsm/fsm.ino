@@ -1,5 +1,6 @@
 #include <Wire.h>
 #include <SFE_MicroOLED.h> //Click here to get the library: http://librarymanager/All#SparkFun_Micro_OLED
+#include "accl.h"
 
 #define PIN_RESET 9
 #define DC_JUMPER 1 // Set to either 0 (SPI, default) or 1 (I2C) based on jumper, matching the value of the DC Jumper
@@ -113,6 +114,7 @@ bool displayDetected = false;
 void setup() {
   Wire.begin();
   Wire.setClock(400000);
+  Serial.begin(115200);
 
   //0x3D is default address on Qwiic board
   if (isConnected(0x3D) == true || isConnected(0x3C) == true)
@@ -133,10 +135,10 @@ void setup() {
     oled.setColor(BLACK);
     oled.display();   // Display what's in the buffer (splashscreen)
   }
+  accl_init(3, 5);
 }
 
 enum State {IDLE, LOOK, LISTEN, TOUCH};
-const char * const stateName[] PROGMEM = { "IDLE", "LOOK", "LISTEN", "TOUCH"};
 
 State curr_state = IDLE;
 int counter = 0;
@@ -148,38 +150,48 @@ void loop() {
   oled.setCursor(50, 30);
   oled.write(48 + counter);
   oled.display();
+  int counter = accl_sample();
+  int isShaken = accl_isShaken();
+  int isTriggered = mic_isTriggered();
 
   switch (curr_state) {
     case IDLE:
-      curr_state = LOOK;
-      counter = 0;
+      if (isShaken) { 
+        curr_state = LOOK;
+        counter = 0;
+      }
       break;
     case LOOK:
-      if (counter == 5) {
-        curr_state = LISTEN;
-        counter = 0;
-      } else {
-        counter++;
+      if (isTriggered) {
+        if (counter == 5) {
+          curr_state = LISTEN;
+          counter = 0;
+        } else {
+          counter++;
+        }
       }
       break;
     case LISTEN:
-      if (counter == 4) {
-        curr_state = TOUCH;
-        counter = 0;        
-      } else {
-        counter++;
-      }
+      if (isTriggered) {
+        if (counter == 4) {
+          curr_state = TOUCH;
+          counter = 0;        
+        } else {
+          counter++;
+        }
+      }      
       break;
     case TOUCH:
-      if (counter == 3) {
-        curr_state = IDLE;
-        counter = 0;
-      } else {
-        counter++;
+      if (isTriggered) {
+        if (counter == 3) {
+          curr_state = IDLE;
+          counter = 0;
+        } else {
+          counter++;
+        }
       }
       break;
   }
-  delay(1000);
 }
 
 bool isConnected(uint8_t deviceAddress)
@@ -188,4 +200,10 @@ bool isConnected(uint8_t deviceAddress)
   if (Wire.endTransmission() == 0)
     return true;
   return false;
+}
+
+int mic_isTriggered_count = 0;
+bool mic_isTriggered() {
+  mic_isTriggered_count ++;
+  return mic_isTriggered_count%100 == 0;
 }
