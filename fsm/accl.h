@@ -1,3 +1,3 @@
 void accl_init(int secondsToCount, int shakeThreshold);
-void accl_sample();
+int accl_sample();
 bool accl_isShaken();
