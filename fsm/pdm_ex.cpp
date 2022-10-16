@@ -14,9 +14,8 @@ long total_read = 0;
 
 #define BUFFER_SIZE 8
 float circBuffer[BUFFER_SIZE];
-#define THRESHOLD 50
+#define THRESHOLD 80
 int buffIndex;
-
 
 // use first channel of 16 channels (started from zero)
 #define LEDC_CHANNEL_0     0
@@ -26,6 +25,8 @@ int buffIndex;
 #define LEDC_BASE_FREQ     5000
 // fade LED PIN (replace with LED_BUILTIN constant for built-in LED)
 #define LED_PIN            LED_BUILTIN
+
+#define TIMEOUT 1000
 
 // http://www.schwietering.com/jayduino/filtuino/index.php?characteristic=be&passmode=hp&order=2&usesr=usesr&sr=24000&frequencyLow=100&noteLow=&noteHigh=&pw=pw&calctype=float&run=Send
 //High pass bessel filter order=2 alpha1=0.0041666666666667 
@@ -54,6 +55,7 @@ class  FilterBeHp2
 };
 
 FilterBeHp2 filter;
+unsigned long lastTrigger;
 
 void init_pdm() {
   
@@ -92,11 +94,12 @@ void init_pdm() {
     }
 
     buffIndex = -1;
+    lastTrigger = millis();
 }
 
-void process_samples() {
+bool process_samples() {
     size_t num_bytes_read;
-    bool diff = false;
+    bool res = false;
     esp_err_t result = i2s_read(I2S_PORT, 
                                 (char *)samples, 
                                 BLOCK_SIZE,     // the doc says bytes, but its elements.
@@ -117,19 +120,31 @@ void process_samples() {
         if (buffIndex != -1) {
           float last_entry = circBuffer[(buffIndex + BUFFER_SIZE - 1) % BUFFER_SIZE];
           float diff = plot_target - last_entry;
-          Serial.print("diff");
-          Serial.println(diff);
+          // Serial.print("diff");
+          // Serial.println(diff);
           if (diff > THRESHOLD || diff < -THRESHOLD) {
             Serial.println("Sharp difference!");
-            diff = true;
+            res = true;
           }
         }
         buffIndex = (buffIndex + 1) % BUFFER_SIZE;
         circBuffer[buffIndex] = plot_target;
-        Serial.print("Plot target: "); // to plot on the serial monitor
-        Serial.println(plot_target);
-        Serial.print(", ");
+        // Serial.print("Plot target: "); // to plot on the serial monitor
+        // Serial.println(plot_target);
+        // Serial.print(", ");
     } else if (result != ESP_OK) {
         Serial.printf("Failed reading data: %d\n", result);
     }
+    return res;
+}
+
+bool process_samples_timeout() {
+    bool ret = process_samples();
+    if (ret) {
+      if (millis() - lastTrigger < TIMEOUT) {
+        return false;
+      }
+      lastTrigger = millis();
+    }
+    return ret;  
 }

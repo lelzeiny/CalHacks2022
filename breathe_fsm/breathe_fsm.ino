@@ -1,5 +1,6 @@
 #include <Wire.h>
 #include <SFE_MicroOLED.h> //Click here to get the library: http://librarymanager/All#SparkFun_Micro_OLED
+#include "accl.h"
 
 #define PIN_RESET 9
 #define DC_JUMPER 1 // Set to either 0 (SPI, default) or 1 (I2C) based on jumper, matching the value of the DC Jumper
@@ -133,6 +134,8 @@ void setup() {
     oled.setColor(BLACK);
     oled.display();   // Display what's in the buffer (splashscreen)
   }
+  Serial.begin(9600);
+  accl_init(300);
 }
 
 enum State {IDLE, IN, OUT, HOLD};
@@ -148,15 +151,20 @@ void loop() {
   oled.setCursor(50, 30);
   oled.write(48 + counter);
   oled.display();
+  accl_sample();
+  bool isTriggered = true;
+  Serial.println(isTriggered);
 
   switch (curr_state) {
     case IDLE:
-      prev_state = IDLE;
-      curr_state = IN;
-      counter = 0;
+      if (isTriggered) {
+        prev_state = IDLE;
+        curr_state = IN;
+        counter = 0;
+      }
       break;
     case IN:
-      if (counter == 4) {
+      if (counter == 3) {
         prev_state = IN;
         curr_state = HOLD;
         counter = 0;
@@ -165,7 +173,7 @@ void loop() {
       }
       break;
     case OUT:
-      if (counter == 4) {
+      if (counter == 3) {
         prev_state = OUT;
         curr_state = HOLD;
         counter = 0;        
@@ -174,11 +182,11 @@ void loop() {
       }
       break;
     case HOLD:
-      if (counter == 4 && prev_state == IN) {
+      if (counter == 3 && prev_state == IN) {
         prev_state = HOLD;
         curr_state = OUT;
         counter = 0;
-      } if (counter == 4 && prev_state == OUT) {
+      } if (counter == 3 && prev_state == OUT) {
         prev_state = HOLD;
         curr_state = IN;
         counter = 0;

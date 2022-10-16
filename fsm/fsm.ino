@@ -115,7 +115,7 @@ bool displayDetected = false;
 void setup() {
   Wire.begin();
   Wire.setClock(400000);
-  // Serial.begin(115200);
+  Serial.begin(115200);
 
   //0x3D is default address on Qwiic board
   if (isConnected(0x3D) == true || isConnected(0x3C) == true)
@@ -136,7 +136,7 @@ void setup() {
     oled.setColor(BLACK);
     oled.display();   // Display what's in the buffer (splashscreen)
   }
-  accl_init(3, 5);
+  accl_init(300);
   init_pdm();
 }
 
@@ -152,12 +152,12 @@ void loop() {
   oled.setCursor(50, 30);
   oled.write(48 + counter);
   oled.display();
-  int counter = accl_sample();
-  int isShaken = accl_isShaken();
-  bool isTriggered = process_samples();
+  int _ = accl_sample();
+  bool isShaken = accl_isShaken();
+  bool isTriggered = process_samples_timeout();
 
   switch (curr_state) {
-    case IDLE:
+    case IDLE:    
       if (isTriggered) { 
         curr_state = LOOK;
         counter = 0;
@@ -165,31 +165,28 @@ void loop() {
       break;
     case LOOK:
       if (isTriggered) {
+        counter++;
         if (counter == 5) {
           curr_state = LISTEN;
           counter = 0;
-        } else {
-          counter++;
         }
       }
       break;
     case LISTEN:
       if (isTriggered) {
+        counter++;
         if (counter == 4) {
           curr_state = TOUCH;
           counter = 0;        
-        } else {
-          counter++;
         }
       }      
       break;
     case TOUCH:
       if (isTriggered) {
+        counter++;
         if (counter == 3) {
           curr_state = IDLE;
           counter = 0;
-        } else {
-          counter++;
         }
       }
       break;

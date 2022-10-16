@@ -25,20 +25,21 @@ void accl_init(int threshold) {
     // Init buffer
     buffer_init();
     Wire.begin();
-    pinMode(accelInterruptPin, INPUT_PULLUP);
+  
     if (accel.begin() == false)
     {
         Serial.println("Accelerometer not detected. Check address jumper and wiring. Freezing...");
         while (1);
     }
-
+    accel.enableTapDetection();
+    accel.setTapThreshold(20);
     lastRefreshTime = millis();
     currTime = millis();
 }
 
 int accl_sample() {
     if (accel.isTapped()) {
-        tappedCount += 1;
+      tappedCount += 1;
     }
     // check time
     currTime = millis();    
@@ -65,4 +66,3 @@ bool accl_isShaken() {
     }
     return ret;
 }
-
