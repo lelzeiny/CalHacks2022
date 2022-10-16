@@ -11,6 +11,11 @@ float plot_target;
 #define SAMPLE_RATE 24000
 long total_read = 0;
 
+#define BUFFER_SIZE 8
+float circBuffer[BUFFER_SIZE];
+#define THRESHOLD 50
+int buffIndex;
+
 
 // use first channel of 16 channels (started from zero)
 #define LEDC_CHANNEL_0     0
@@ -93,6 +98,7 @@ void setup() {
     init_pdm();
     ledcSetup(LEDC_CHANNEL_0, LEDC_BASE_FREQ, LEDC_TIMER_13_BIT);
     ledcAttachPin(LED_PIN, LEDC_CHANNEL_0);
+    buffIndex = -1;
 }
 
 void process_samples() {
@@ -112,9 +118,20 @@ void process_samples() {
           plot_target += (sample * SHRT_MAX);
         }
         plot_target /= samples_read;
-        //Serial.print("Plot target: "); // to plot on the serial monitor
-        Serial.print(plot_target);
-        Serial.print(", ");
+        if (buffIndex != -1) {
+          float last_entry = circBuffer[(buffIndex + BUFFER_SIZE - 1) % BUFFER_SIZE];
+          float diff = plot_target - last_entry;
+          Serial.print("diff");
+          Serial.println(diff);
+          if (diff > THRESHOLD || diff < -THRESHOLD) {
+            Serial.println("Sharp difference!");
+          }
+        }
+        buffIndex = (buffIndex + 1) % BUFFER_SIZE;
+        circBuffer[buffIndex] = plot_target;
+        Serial.print("Plot target: "); // to plot on the serial monitor
+        Serial.println(plot_target);
+        // Serial.print(", ");
     } else if (result != ESP_OK) {
         Serial.printf("Failed reading data: %d\n", result);
     }
@@ -127,22 +144,22 @@ int threshold = 16;
 int counter = 0;
 
 void loop() {
-    listening = num_samples < threshold;
-    if (listening && counter < 25) {
-      ledcWrite(LEDC_CHANNEL_0, 255);
+    // listening = num_samples < threshold;
+    // if (listening && counter < 25) {
+      // ledcWrite(LEDC_CHANNEL_0, 255);
       delay(READ_DELAY); 
       // Read multiple samples at once and calculate the sound pressure
       process_samples();
-      num_samples++;
-    } else {
-      ledcWrite(LEDC_CHANNEL_0, 0);
-      delay(READ_DELAY);
-      num_waiting++;
-      if (num_waiting > threshold && counter < 25) {
-        Serial.println("");
-        num_waiting = 0;
-        num_samples = 0;
-        counter++;
-      }
-    }
+      // num_samples++;
+    // } else {
+    //   ledcWrite(LEDC_CHANNEL_0, 0);
+    //   delay(READ_DELAY);
+    //   num_waiting++;
+    //   if (num_waiting > threshold && counter < 25) {
+    //     Serial.println("");
+    //     num_waiting = 0;
+    //     num_samples = 0;
+    //     counter++;
+    //   }
+    // }
 }
