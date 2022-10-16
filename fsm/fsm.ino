@@ -1,6 +1,7 @@
 #include <Wire.h>
 #include <SFE_MicroOLED.h> //Click here to get the library: http://librarymanager/All#SparkFun_Micro_OLED
 #include "accl.h"
+#include "pdm_ex.h"
 
 #define PIN_RESET 9
 #define DC_JUMPER 1 // Set to either 0 (SPI, default) or 1 (I2C) based on jumper, matching the value of the DC Jumper
@@ -114,7 +115,7 @@ bool displayDetected = false;
 void setup() {
   Wire.begin();
   Wire.setClock(400000);
-  Serial.begin(115200);
+  // Serial.begin(115200);
 
   //0x3D is default address on Qwiic board
   if (isConnected(0x3D) == true || isConnected(0x3C) == true)
@@ -136,6 +137,7 @@ void setup() {
     oled.display();   // Display what's in the buffer (splashscreen)
   }
   accl_init(3, 5);
+  init_pdm();
 }
 
 enum State {IDLE, LOOK, LISTEN, TOUCH};
@@ -152,11 +154,11 @@ void loop() {
   oled.display();
   int counter = accl_sample();
   int isShaken = accl_isShaken();
-  int isTriggered = mic_isTriggered();
+  bool isTriggered = process_samples();
 
   switch (curr_state) {
     case IDLE:
-      if (isShaken) { 
+      if (isTriggered) { 
         curr_state = LOOK;
         counter = 0;
       }
