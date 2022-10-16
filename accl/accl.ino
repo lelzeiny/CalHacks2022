@@ -3,8 +3,8 @@
 int tapCount = 0;
 
 void setup() {
-    Serial.begin(9600);
-    accl_init(3, 3);
+    Serial.begin(115200);
+    accl_init(300);
 }
 
 void loop() {
@@ -16,5 +16,5 @@ void loop() {
         Serial.print("Got shaken ");
         Serial.println(tapCount);
     }
-    delay(200);
+    // delay(200);
 }
