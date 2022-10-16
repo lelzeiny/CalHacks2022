@@ -91,33 +91,26 @@ void setup() {
 }
 
 void process_samples(void *pvParameters) {
-  
     while(1){
-      size_t num_bytes_read;
-      esp_err_t result = i2s_read(I2S_PORT, 
-                                          (char *)samples, 
-                                          BLOCK_SIZE,     // the doc says bytes, but its elements.
-                                          &num_bytes_read,
-                                          portMAX_DELAY); // no timeout
-          if (num_bytes_read > 0) {
-            
+        size_t num_bytes_read;
+        esp_err_t result = i2s_read(I2S_PORT, 
+                                    (char *)samples, 
+                                    BLOCK_SIZE,     // the doc says bytes, but its elements.
+                                    &num_bytes_read,
+                                    portMAX_DELAY); // no timeout
+        if (result == ESP_OK && num_bytes_read > 0) {
             int samples_read = num_bytes_read / 4;
             total_read += samples_read;
             float sample;
             for(int i=0; i < samples_read; i++) {
               sample = filter.step((float)samples[i] / INT_MAX);
-              //sample = (float)samples[i] / INT_MAX;
               plot_target = (sample * SHRT_MAX);
               // Serial.println(plot_target, 3);
             }
-            //      float rms = 0;
-            //      for(int i=0; i < nsamples; i++) {
-            //        float p = samples[i * 2 + 1] - avg;
-            //        rms = p * p; 
-            //      }
-            //      float spl = 20 * log10f(sqrtf(rms / nsamples));
-            //      Serial.println(spl);
-          }
+        } else if (result != ESP_OK) {
+            Serial.printf("Failed reading data: %d\n", err);
+            while (true);
+        }
     }
 }
 
