@@ -1,7 +1,7 @@
 // based on : https://github.com/nicolas-f/huzzah_esp32_pdm_mic/blob/master/pdm3.ino
 
 #include "driver/i2s.h"
-#include "dsps_fft2r.h"
+//#include "dsps_fft2r.h"
 
 #define READ_DELAY 100 // millisec
 const i2s_port_t I2S_PORT = I2S_NUM_0;
@@ -10,6 +10,16 @@ int samples[BLOCK_SIZE];
 float plot_target;
 #define SAMPLE_RATE 24000
 long total_read = 0;
+
+
+// use first channel of 16 channels (started from zero)
+#define LEDC_CHANNEL_0     0
+// use 13 bit precission for LEDC timer
+#define LEDC_TIMER_13_BIT  13
+// use 5000 Hz as a LEDC base frequency
+#define LEDC_BASE_FREQ     5000
+// fade LED PIN (replace with LED_BUILTIN constant for built-in LED)
+#define LED_PIN            LED_BUILTIN
 
 // http://www.schwietering.com/jayduino/filtuino/index.php?characteristic=be&passmode=hp&order=2&usesr=usesr&sr=24000&frequencyLow=100&noteLow=&noteHigh=&pw=pw&calctype=float&run=Send
 //High pass bessel filter order=2 alpha1=0.0041666666666667 
@@ -81,6 +91,8 @@ void setup() {
     Serial.begin(115200);
     // Initialize the I2S peripheral
     init_pdm();
+    ledcSetup(LEDC_CHANNEL_0, LEDC_BASE_FREQ, LEDC_TIMER_13_BIT);
+    ledcAttachPin(LED_PIN, LEDC_CHANNEL_0);
 }
 
 void process_samples() {
@@ -100,15 +112,35 @@ void process_samples() {
           plot_target += (sample * SHRT_MAX);
         }
         plot_target /= samples_read;
-        Serial.print("Plot target: "); // to plot on the serial monitor
-        Serial.println(plot_target);
+        //Serial.print("Plot target: "); // to plot on the serial monitor
+        Serial.print(plot_target);
+        Serial.print(", ");
     } else if (result != ESP_OK) {
         Serial.printf("Failed reading data: %d\n", result);
     }
 }
 
+bool listening = false;
+int num_samples = 0;
+int num_waiting = 0;
+int threshold = 20;
+
 void loop() {
-    delay(READ_DELAY); 
-    // Read multiple samples at once and calculate the sound pressure
-    process_samples();
+    listening = num_samples < threshold;
+    if (listening) {
+      ledcWrite(LEDC_CHANNEL_0, 255);
+      delay(READ_DELAY); 
+      // Read multiple samples at once and calculate the sound pressure
+      process_samples();
+      num_samples++;
+    } else {
+      ledcWrite(LEDC_CHANNEL_0, 0);
+      delay(READ_DELAY);
+      num_waiting++;
+      if (num_waiting > threshold) {
+        Serial.println("");
+        num_waiting = 0;
+        num_samples = 0;
+      }
+    }
 }
