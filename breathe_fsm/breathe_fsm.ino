@@ -105,7 +105,8 @@ uint8_t state_bitmaps[][384] = {
 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 
 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 
 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 
-0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
+0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff}
+};
 
 bool displayDetected = false;
 
@@ -137,6 +138,7 @@ void setup() {
 enum State {IDLE, IN, OUT, HOLD};
 
 State curr_state = IDLE;
+State prev_state = IDLE;
 int counter = 0;
 
 void loop() {
@@ -149,12 +151,14 @@ void loop() {
 
   switch (curr_state) {
     case IDLE:
+      prev_state = IDLE;
       curr_state = IN;
       counter = 0;
       break;
     case IN:
       if (counter == 4) {
-        curr_state = OUT;
+        prev_state = IN;
+        curr_state = HOLD;
         counter = 0;
       } else {
         counter++;
@@ -162,6 +166,7 @@ void loop() {
       break;
     case OUT:
       if (counter == 4) {
+        prev_state = OUT;
         curr_state = HOLD;
         counter = 0;        
       } else {
@@ -169,8 +174,13 @@ void loop() {
       }
       break;
     case HOLD:
-      if (counter == 4) {
-        curr_state = IDLE;
+      if (counter == 4 && prev_state == IN) {
+        prev_state = HOLD;
+        curr_state = OUT;
+        counter = 0;
+      } if (counter == 4 && prev_state == OUT) {
+        prev_state = HOLD;
+        curr_state = IN;
         counter = 0;
       } else {
         counter++;
