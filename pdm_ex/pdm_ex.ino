@@ -3,7 +3,7 @@
 #include "driver/i2s.h"
 #include "dsps_fft2r.h"
 
-#define READ_DELAY 200 // millisec
+#define READ_DELAY 100 // millisec
 const i2s_port_t I2S_PORT = I2S_NUM_0;
 const int BLOCK_SIZE = 512;
 int samples[BLOCK_SIZE];
@@ -36,8 +36,6 @@ class  FilterBeHp2
         - 2 * v[1];
     }
 };
-
-
 
 FilterBeHp2 filter;
 
@@ -78,45 +76,39 @@ void init_pdm() {
     }
 }
 
-
-
-
 void setup() {
     // Serial.begin(2000000);
     Serial.begin(115200);
     // Initialize the I2S peripheral
     init_pdm();
-    // Create a task that will read the data
-    xTaskCreatePinnedToCore(process_samples, "PDM_reader", 2048, NULL, 1, NULL, 1);
 }
 
-void process_samples(void *pvParameters) {
-    while(1){
-        size_t num_bytes_read;
-        esp_err_t result = i2s_read(I2S_PORT, 
-                                    (char *)samples, 
-                                    BLOCK_SIZE,     // the doc says bytes, but its elements.
-                                    &num_bytes_read,
-                                    portMAX_DELAY); // no timeout
-        if (result == ESP_OK && num_bytes_read > 0) {
-            int samples_read = num_bytes_read / 4;
-            total_read += samples_read;
-            float sample;
-            for(int i=0; i < samples_read; i++) {
-              sample = filter.step((float)samples[i] / INT_MAX);
-              plot_target = (sample * SHRT_MAX);
-              // Serial.println(plot_target, 3);
-            }
-        } else if (result != ESP_OK) {
-            Serial.printf("Failed reading data: %d\n", err);
-            while (true);
+void process_samples() {
+    size_t num_bytes_read;
+    esp_err_t result = i2s_read(I2S_PORT, 
+                                (char *)samples, 
+                                BLOCK_SIZE,     // the doc says bytes, but its elements.
+                                &num_bytes_read,
+                                portMAX_DELAY); // no timeout
+    if (result == ESP_OK && num_bytes_read > 0) {
+        int samples_read = num_bytes_read / 4;
+        total_read += samples_read;
+        float sample;
+        plot_target = 0;
+        for(int i=0; i < samples_read; i++) {
+          sample = filter.step((float)samples[i] / INT_MAX);
+          plot_target += (sample * SHRT_MAX);
         }
+        plot_target /= samples_read;
+        Serial.print("Plot target: "); // to plot on the serial monitor
+        Serial.println(plot_target);
+    } else if (result != ESP_OK) {
+        Serial.printf("Failed reading data: %d\n", result);
     }
 }
 
 void loop() {
     delay(READ_DELAY); 
     // Read multiple samples at once and calculate the sound pressure
-    Serial.print("Plot target: ");
-    Serial.println(plot_target);
+    process_samples();
 }
